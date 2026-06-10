@@ -1,0 +1,77 @@
+# OTel Collector — Path A instrumentation
+#
+# Required env vars (set in /etc/otelcol/otelcol.env or systemd EnvironmentFile):
+#   GRAFANA_OTLP_ENDPOINT  — e.g. https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+#   GRAFANA_OTLP_AUTH      — base64(<grafana-instance-id>:<grafana-api-token>)
+#   OTEL_SERVICE_NAME      — e.g. nr-sandbox (passed through to resource attributes)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  hostmetrics:
+    collection_interval: 15s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      network: {}
+      load: {}
+      process:
+        # Scrapes all running processes — the core of the process-visibility demo.
+        # Requires the collector to run as root (or with CAP_SYS_PTRACE) to see
+        # processes owned by other users (nginx, redis, etc.).
+        mute_process_name_error: true
+        metrics:
+          process.cpu.time:
+            enabled: true
+          process.memory.physical_usage:
+            enabled: true
+          process.memory.virtual_usage:
+            enabled: true
+          process.disk.io:
+            enabled: true
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1000
+
+  resourcedetection:
+    detectors: [ec2, env]
+    timeout: 5s
+
+exporters:
+  otlphttp:
+    endpoint: ${env:GRAFANA_OTLP_ENDPOINT}
+    headers:
+      authorization: "Basic ${env:GRAFANA_OTLP_AUTH}"
+    compression: gzip
+
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: warn
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, batch]
+      exporters: [otlphttp]
+
+    metrics:
+      receivers: [otlp, hostmetrics]
+      processors: [resourcedetection, batch]
+      exporters: [otlphttp]
+
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, batch]
+      exporters: [otlphttp]

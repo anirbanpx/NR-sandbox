@@ -8,10 +8,13 @@ __pycache__/
 .venv/
 venv/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.local
 .env.*.local
+infra/.env
+infra/*.pem
+infra/.ec2-state
 
 # Build outputs
 dist/

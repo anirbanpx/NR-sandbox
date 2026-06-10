@@ -1,0 +1,32 @@
+# Prometheus scrape config — alternative / supplementary to the OTel Collector path.
+#
+# Use case: run a local Prometheus alongside the OTel Collector if you want to verify
+# raw metric values on-host, or to remote_write to Grafana Cloud as a second path.
+#
+# To remote_write to Grafana Cloud, uncomment the remote_write block and set:
+#   GRAFANA_PROM_URL  — e.g. https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+#   GRAFANA_USER      — numeric Grafana Cloud Prometheus datasource ID
+#   GRAFANA_API_TOKEN — a Grafana Cloud API token with MetricsPublisher role
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    env: ec2-prototype
+    service: nr-sandbox
+
+scrape_configs:
+  - job_name: fastapi
+    static_configs:
+      - targets: ["localhost:8000"]
+    metrics_path: /metrics
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["localhost:8888"]
+
+# remote_write:
+#   - url: "${GRAFANA_PROM_URL}"
+#     basic_auth:
+#       username: "${GRAFANA_USER}"
+#       password: "${GRAFANA_API_TOKEN}"

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-## [ ] Phase 1 — Application & Instrumentation
+## [x] Phase 1 — Application & Instrumentation
 
 Build the FastAPI app with OTel instrumentation and the background worker.
 
@@ -9,7 +9,7 @@ Build the FastAPI app with OTel instrumentation and the background worker.
 - `app/telemetry.py` — OTel SDK: TracerProvider + MeterProvider + LoggingHandler → OTLP :4317
 - `app/requirements.txt` — fastapi, uvicorn, opentelemetry-sdk + instrumentation packages
 
-## [ ] Phase 2 — Collector & Load Generator
+## [x] Phase 2 — Collector & Load Generator
 
 Configure the OTel Collector and traffic simulation.
 
