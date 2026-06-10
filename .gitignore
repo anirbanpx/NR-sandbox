@@ -19,6 +19,9 @@ build/
 .next/
 out/
 
+# Private working notes (not for reviewers)
+notes/
+
 # OS / editor
 .DS_Store
 Thumbs.db

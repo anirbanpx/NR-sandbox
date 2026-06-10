@@ -27,6 +27,8 @@ Provision the EC2 instance and run both instrumentation paths simultaneously.
 - `infra/nginx.conf` — routes port 80 → uvicorn :8000
 - EC2 IAM: no AWS-specific permissions needed (all telemetry goes to external clouds)
 - Security group: inbound port 22 (SSH, your IP only), port 80 (HTTP)
+- Teardown: stop/terminate the instance after capturing the demo to stay within free-tier
+  limits; document the stop step alongside setup
 
 ## [ ] Phase 4 — Prototype & Comparison
 
@@ -45,3 +47,5 @@ Build the observability prototype and document findings.
 - [ ] New Relic APM shows FastAPI service with distributed traces
 - [ ] Locust traffic generating visible request rate and error rate signals
 - [ ] `/items/slow` endpoint produces latency spikes observable in both stacks
+- [ ] Killing `worker.py` demonstrates the process-visibility gap in each stack
+- [ ] Process-visibility gap is clearly demonstrable across both stacks (not just data flowing)

@@ -81,3 +81,14 @@ relevant to the investigation. It also keeps the setup within free-tier limits.
 **Credentials via `.env`, never committed**
 All API keys (Grafana Cloud, New Relic license key) are injected via environment
 variables at runtime. The `.env` file is gitignored.
+
+## Demo Narrative
+
+The endpoints and processes map to specific observable signals so the demo tells a story
+rather than just emitting data:
+
+- `/items/slow` — produces latency spikes (p95/p99 signal).
+- `/items/error` — drives error rate.
+- `worker.py` killed mid-run — the background worker is monitored by neither stack's
+  default config. Killing it demonstrates the core pain: a process that is "invisible
+  until it crashes." This is the central before/after moment of the prototype.
