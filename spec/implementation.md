@@ -1,6 +1,6 @@
 # Implementation Plan
 
-## Phase 1 — Application & Instrumentation
+## [ ] Phase 1 — Application & Instrumentation
 
 Build the FastAPI app with OTel instrumentation and the background worker.
 
@@ -9,7 +9,7 @@ Build the FastAPI app with OTel instrumentation and the background worker.
 - `app/telemetry.py` — OTel SDK: TracerProvider + MeterProvider + LoggingHandler → OTLP :4317
 - `app/requirements.txt` — fastapi, uvicorn, opentelemetry-sdk + instrumentation packages
 
-## Phase 2 — Collector & Load Generator
+## [ ] Phase 2 — Collector & Load Generator
 
 Configure the OTel Collector and traffic simulation.
 
@@ -18,7 +18,7 @@ Configure the OTel Collector and traffic simulation.
 - `collector/prometheus.yml` — scrape config for local metrics endpoints
 - `loadgen/locustfile.py` — mixed load: 80% GET /items, 15% POST /items, 5% /slow + /error
 
-## Phase 3 — EC2 Deployment
+## [ ] Phase 3 — EC2 Deployment
 
 Provision the EC2 instance and run both instrumentation paths simultaneously.
 
@@ -28,7 +28,7 @@ Provision the EC2 instance and run both instrumentation paths simultaneously.
 - EC2 IAM: no AWS-specific permissions needed (all telemetry goes to external clouds)
 - Security group: inbound port 22 (SSH, your IP only), port 80 (HTTP)
 
-## Phase 4 — Prototype & Comparison
+## [ ] Phase 4 — Prototype & Comparison
 
 Build the observability prototype and document findings.
 
