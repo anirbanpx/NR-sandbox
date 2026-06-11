@@ -37,6 +37,14 @@ if [ -d /home/ec2-user/NR-sandbox ]; then
     rsync -a /home/ec2-user/NR-sandbox/. "$APP_DIR/"
 fi
 
+# Re-source now that .env has been copied into APP_DIR
+if [ -f "$ENV_FILE" ]; then
+    set -a; source "$ENV_FILE"; set +a
+fi
+NR_LICENSE_KEY=${NR_LICENSE_KEY:-}
+GRAFANA_OTLP_ENDPOINT=${GRAFANA_OTLP_ENDPOINT:-}
+GRAFANA_OTLP_AUTH=${GRAFANA_OTLP_AUTH:-}
+
 pip3.11 install -r "$APP_DIR/app/requirements.txt" -q
 pip3.11 install locust -q
 
@@ -72,7 +80,8 @@ User=root
 WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
-    systemctl enable --now otelcol
+    systemctl enable otelcol
+    systemctl restart otelcol
     echo "    OTel Collector running"
 else
     echo "    GRAFANA_* not set — skipping OTel Collector (add credentials and re-run to enable)"
@@ -81,7 +90,16 @@ fi
 # ── New Relic Infrastructure agent (skipped if license key not yet set) ───────
 if [ -n "$NR_LICENSE_KEY" ]; then
     echo "==> installing New Relic Infrastructure agent"
-    echo "license_key: ${NR_LICENSE_KEY}" > /etc/newrelic-infra.yml
+    # EU license keys start with "eu0"; only collector_url needs to be overridden —
+    # the agent auto-routes identity/command channels based on the key prefix.
+    if [[ "${NR_LICENSE_KEY}" == eu0* ]]; then
+        cat > /etc/newrelic-infra.yml <<NRCFG
+license_key: ${NR_LICENSE_KEY}
+collector_url: https://infra-api.eu01.nr-data.net
+NRCFG
+    else
+        echo "license_key: ${NR_LICENSE_KEY}" > /etc/newrelic-infra.yml
+    fi
     curl -fsSL -o /etc/yum.repos.d/newrelic-infra.repo \
         https://download.newrelic.com/infrastructure_agent/linux/yum/el/9/x86_64/newrelic-infra.repo
     dnf install -y -q newrelic-infra

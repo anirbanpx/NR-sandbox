@@ -26,12 +26,13 @@ receivers:
         # Requires the collector to run as root (or with CAP_SYS_PTRACE) to see
         # processes owned by other users (nginx, redis, etc.).
         mute_process_name_error: true
+        mute_process_exe_error: true
         metrics:
           process.cpu.time:
             enabled: true
-          process.memory.physical_usage:
+          process.memory.usage:
             enabled: true
-          process.memory.virtual_usage:
+          process.memory.virtual:
             enabled: true
           process.disk.io:
             enabled: true
