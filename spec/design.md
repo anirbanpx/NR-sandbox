@@ -1,18 +1,18 @@
 # Design: Infrastructure & Process Monitoring
 
-## Host Architecture (EC2 t2.micro, Amazon Linux 2023)
+## Host Architecture (EC2 t3.micro, Amazon Linux 2023, ap-south-2)
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  EC2 t2.micro                                       │
+│  EC2 t3.micro                                       │
 │                                                     │
 │  nginx (port 80)          ← reverse proxy           │
 │  uvicorn / FastAPI (8000) ← main service            │
 │  python worker.py         ← background processor   │
 │  redis-server             ← cache                  │
-│  sshd, systemd, cron      ← OS processes            │
+│  sshd, systemd            ← OS processes            │
 │                                                     │
-│  locust (cron, */5 min)   ← traffic simulation      │
+│  locust (headless)        ← traffic simulation      │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -59,15 +59,19 @@ NR-sandbox/
 │   ├── otel-collector.yaml  # Path A: hostmetrics + process scraper + OTLP recv
 │   └── prometheus.yml       # Prometheus scrape config
 ├── infra/
-│   ├── setup-ec2.sh         # EC2 bootstrap script
-│   └── nginx.conf           # Reverse proxy config
-└── prototype/
-    └── queries.md           # PromQL and NRQL reference queries
+│   ├── provision-ec2.sh     # One-time EC2 provisioning
+│   ├── deploy.sh            # Sync repo and run bootstrap
+│   ├── setup-ec2.sh         # Idempotent EC2 bootstrap
+│   ├── teardown-ec2.sh      # Terminate instance and clean up
+│   ├── nginx.conf           # Reverse proxy config
+│   └── .env.example         # Credential template
+└── tests/
+    └── test_api.py          # Integration tests (6 tests, no mocks)
 ```
 
 ## Design Decisions
 
-**t2.micro with cloud-hosted backends (Grafana Cloud + New Relic cloud)**
+**t3.micro with cloud-hosted backends (Grafana Cloud + New Relic cloud)**
 Running Prometheus and Grafana on the EC2 instance would consume ~400 MB RAM, leaving
 insufficient headroom for the application stack. Using cloud-hosted backends keeps the
 EC2 footprint under 300 MB and makes the instrumentation architecture realistic —
