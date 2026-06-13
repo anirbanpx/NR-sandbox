@@ -10,25 +10,6 @@ and what does it take to get there?
 
 ## What's running
 
-```
-                        ┌─────────────────────────────────────┐
-                        │            EC2 t3.micro             │
-                        │                                     │
-  HTTP traffic          │  nginx (reverse proxy, :80)         │
-  ──────────────────►   │    └─► FastAPI app (:8000)          │
-                        │          └─► Redis (jobs queue)     │
-                        │    └─► Background worker            │
-                        │                                     │
-                        │  OTel Collector                     │
-                        │    ├─ hostmetrics (CPU/mem/disk/net)│
-                        │    ├─ process scraper (per-PID)     │
-                        │    └─► Grafana Cloud (OTLP)         │
-                        │                                     │
-                        │  NR Infrastructure agent            │
-                        │    └─► New Relic (EU)               │
-                        └─────────────────────────────────────┘
-```
-
 **FastAPI app** — full CRUD on items (`GET`/`POST`/`PUT`/`DELETE`), plus an intentionally
 slow endpoint (1.5–3s latency) and an intentional 500 error. Backed by Redis. Ships a
 bare-bone browser UI at `/` for live demos (no curl needed).
@@ -39,6 +20,46 @@ auto-instrumented by either stack — killing it mid-run is the central demo mom
 **OTel Collector** — collects host metrics and per-process metrics, exports to Grafana Cloud.
 
 **NR Infrastructure agent** — ships host-level metrics to New Relic.
+
+---
+
+## Observability Architecture
+
+```
+  HTTP traffic        ┌──────────────────── EC2 t3.micro ──────────────────────────┐
+  ─────────────────►  │                                                              │
+                      │  nginx :80 ──► FastAPI :8000 ──────────► Redis :6379        │
+                      │                    │    │                        ▲           │
+                      │            OTel    │    │  NR APM           worker.py        │
+                      │            SDK ①   │    │  agent ②         (background)     │
+                      │                    ▼    │                                    │
+                      │  ┌───────────────────────────────────────┐                  │
+                      │  │  OTel Collector                       │◄── all procs ③  │
+                      │  │  · OTLP recv :4317  ◄── app ①        │                  │
+                      │  │  · hostmetrics      ◄── host ③        │                  │
+                      │  └───────────────────────────────────────┘                  │
+                      │  ┌───────────────────────────────────────┐                  │
+                      │  │  NR Infrastructure Agent              │◄── all procs ③  │
+                      │  │  · host metrics + process list        │                  │
+                      │  └───────────────────────────────────────┘                  │
+                      └──────────────┬──────────────────────────────┬───────────────┘
+                                     │                              │
+                                     ▼                              ▼
+                        ┌─────────────────────────┐   ┌──────────────────────────┐
+                        │      Grafana Cloud       │   │      New Relic (EU)      │
+                        │  Prometheus — metrics    │   │  Infrastructure — hosts  │
+                        │  Tempo      — traces     │   │  APM            — svcs   │
+                        │  Loki       — logs       │   │  Logs                    │
+                        └─────────────────────────┘   └──────────────────────────┘
+                               Path A (OSS)                   Path B (NR)
+
+  ① OTel SDK — traces, metrics, logs exported from the app via OTLP
+  ② NR APM agent — in-process, ships app telemetry directly to New Relic
+  ③ host + per-process metrics — CPU, memory, per-PID stats for all running processes
+```
+
+Both stacks see the same host and processes ③. The central demo moment: kill `worker.py`
+and observe how quickly (or slowly) each stack surfaces the missing process.
 
 ---
 
