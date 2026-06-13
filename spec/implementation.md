@@ -4,10 +4,11 @@
 
 Build the FastAPI app with OTel instrumentation and the background worker.
 
-- `app/main.py` — 5 endpoints: `/health`, `/items` (GET/POST), `/items/slow`, `/items/error`
+- `app/main.py` — 5 endpoints: `/health`, `/items` (GET/POST), `/items/slow`, `/items/error`; `GET /` redirects to demo UI
 - `app/worker.py` — long-running background process (queue consumer / polling loop)
 - `app/telemetry.py` — OTel SDK: TracerProvider + MeterProvider + LoggingHandler → OTLP :4317
 - `app/requirements.txt` — fastapi, uvicorn, opentelemetry-sdk + instrumentation packages
+- `app/static/index.html` — single-page demo UI; exercises all endpoints from a browser without curl
 
 ## [x] Phase 2 — Collector & Load Generator
 

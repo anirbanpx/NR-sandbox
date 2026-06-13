@@ -29,8 +29,9 @@ and what does it take to get there?
                         └─────────────────────────────────────┘
 ```
 
-**FastAPI app** — four endpoints: read items, write items, an intentionally slow endpoint
-(1.5–3s latency), and an intentional 500 error. Backed by Redis for state.
+**FastAPI app** — five endpoints: read items, write items, an intentionally slow endpoint
+(1.5–3s latency), and an intentional 500 error. Backed by Redis for state. Ships a
+bare-bone browser UI at `/` for live demos (no curl needed).
 
 **Background worker** — polls a Redis queue and processes jobs. Intentionally not
 auto-instrumented by either stack — killing it mid-run is the central demo moment.
@@ -48,6 +49,7 @@ app/            FastAPI application + background worker
   main.py       API endpoints
   worker.py     Redis queue consumer
   telemetry.py  OTel SDK setup (traces, metrics, logs)
+  static/       Demo UI (single-page HTML, served at /)
 
 collector/
   otel-collector.yaml   OTel Collector config (hostmetrics + OTLP export)
@@ -88,6 +90,7 @@ docker run -d -p 6379:6379 redis:7
 
 # run the app (telemetry disabled locally)
 OTEL_SDK_DISABLED=true uvicorn app.main:app --reload
+# demo UI available at http://localhost:8000
 
 # run the worker (separate terminal)
 OTEL_SDK_DISABLED=true python -m app.worker

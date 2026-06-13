@@ -4,6 +4,8 @@ import random
 import logging
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import redis as redis_lib
 
@@ -17,6 +19,12 @@ configure_telemetry()
 
 app = FastAPI(title="NR Sandbox")
 FastAPIInstrumentor.instrument_app(app)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/static/index.html")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 

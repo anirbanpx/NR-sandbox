@@ -7,7 +7,7 @@ observability stacks.
 
 ### `main.py` — API server
 
-Four endpoints:
+Five endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -17,8 +17,16 @@ Four endpoints:
 | GET | `/items/slow` | Sleeps 1.5–3s — drives latency signal |
 | GET | `/items/error` | Returns HTTP 500 — drives error rate signal |
 
+`GET /` redirects to the demo UI at `/static/index.html`.
+
 Auto-instrumented via `FastAPIInstrumentor` — all requests produce OTel spans when
 the collector is running.
+
+### `static/index.html` — demo UI
+
+Single-page browser UI served by FastAPI. Lets you exercise all five endpoints
+without curl: check app status, list/create items, trigger a slow request, and
+trigger an error — useful for live demos.
 
 ### `worker.py` — background worker
 
@@ -43,6 +51,7 @@ docker run -d -p 6379:6379 redis:7
 
 # API server (port 8000, telemetry off)
 OTEL_SDK_DISABLED=true uvicorn app.main:app --reload
+# demo UI at http://localhost:8000
 
 # Background worker (separate terminal)
 OTEL_SDK_DISABLED=true python -m app.worker

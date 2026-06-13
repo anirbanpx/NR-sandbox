@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NR Sandbox Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f5f7;
+      color: #1a1a2e;
+      padding: 2rem 1rem;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 1.5rem; color: #333; }
+    section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 1.2rem 1.4rem;
+      max-width: 700px;
+      margin: 0 auto 1rem;
+    }
+    section h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 0.8rem; }
+    .result { margin-top: 0.6rem; font-size: 0.9rem; }
+    .ok   { color: #2e7d32; }
+    .err  { color: #c62828; }
+    .dim  { color: #777; }
+    ul { list-style: none; padding: 0; }
+    ul li { padding: 0.25rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+    ul li:last-child { border-bottom: none; }
+    form { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-end; margin-top: 0.4rem; }
+    input {
+      border: 1px solid #ccc; border-radius: 4px;
+      padding: 0.4rem 0.6rem; font-size: 0.9rem; flex: 1; min-width: 120px;
+    }
+    button {
+      background: #1565c0; color: #fff; border: none; border-radius: 4px;
+      padding: 0.45rem 1rem; font-size: 0.9rem; cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: #0d47a1; }
+    button:disabled { background: #90a4ae; cursor: not-allowed; }
+    button.secondary { background: #546e7a; }
+    button.secondary:hover:not(:disabled) { background: #37474f; }
+    .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .inline-msg { font-size: 0.85rem; margin-left: 0.4rem; }
+  </style>
+</head>
+<body>
+  <div style="max-width:700px;margin:0 auto">
+    <h1>NR Sandbox — Demo UI</h1>
+  </div>
+
+  <section>
+    <h2>App Status</h2>
+    <div class="row">
+      <span id="status-badge" class="dim">checking…</span>
+      <button class="secondary" onclick="loadStatus()">Refresh</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Items</h2>
+    <ul id="items-list"><li class="dim">loading…</li></ul>
+    <div style="margin-top:0.6rem">
+      <button class="secondary" onclick="loadItems()">Refresh</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Create Item</h2>
+    <form id="create-form">
+      <input id="item-name"  type="text" placeholder="name"  required>
+      <input id="item-value" type="text" placeholder="value" required>
+      <button type="submit">Create</button>
+    </form>
+    <div id="create-result" class="result"></div>
+  </section>
+
+  <section>
+    <h2>Simulate Load</h2>
+    <p class="dim" style="font-size:0.85rem;margin-bottom:0.7rem">Calls <code>/items/slow</code> — intentional 1.5–3 s latency spike.</p>
+    <div class="row">
+      <button id="load-btn" onclick="simulateLoad()">Simulate Load</button>
+      <span id="load-result" class="inline-msg"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Simulate Error</h2>
+    <p class="dim" style="font-size:0.85rem;margin-bottom:0.7rem">Calls <code>/items/error</code> — intentional 500 error.</p>
+    <div class="row">
+      <button id="error-btn" onclick="simulateError()">Simulate Error</button>
+      <span id="error-result" class="inline-msg"></span>
+    </div>
+  </section>
+
+  <script>
+    async function loadStatus() {
+      const el = document.getElementById('status-badge');
+      el.textContent = 'checking…';
+      el.className = 'dim';
+      try {
+        const resp = await fetch('/health');
+        const data = await resp.json();
+        el.textContent = data.status === 'ok' ? '● ok' : '● ' + data.status;
+        el.className = data.status === 'ok' ? 'ok' : 'err';
+      } catch {
+        el.textContent = '● unreachable';
+        el.className = 'err';
+      }
+    }
+
+    async function loadItems() {
+      const ul = document.getElementById('items-list');
+      ul.innerHTML = '<li class="dim">loading…</li>';
+      try {
+        const resp = await fetch('/items');
+        const data = await resp.json();
+        const entries = Object.entries(data);
+        if (entries.length === 0) {
+          ul.innerHTML = '<li class="dim">No items yet.</li>';
+        } else {
+          ul.innerHTML = entries.map(([k, v]) => `<li><strong>${esc(k)}</strong>: ${esc(v)}</li>`).join('');
+        }
+      } catch {
+        ul.innerHTML = '<li class="err">Failed to load items.</li>';
+      }
+    }
+
+    document.getElementById('create-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name  = document.getElementById('item-name').value.trim();
+      const value = document.getElementById('item-value').value.trim();
+      const msgEl = document.getElementById('create-result');
+      msgEl.textContent = '';
+      try {
+        const resp = await fetch('/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, value }),
+        });
+        if (resp.status === 201) {
+          msgEl.textContent = `Created "${name}".`;
+          msgEl.className = 'result ok';
+          document.getElementById('item-name').value = '';
+          document.getElementById('item-value').value = '';
+          loadItems();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          msgEl.textContent = 'Error: ' + (err.detail || resp.statusText);
+          msgEl.className = 'result err';
+        }
+      } catch {
+        msgEl.textContent = 'Request failed.';
+        msgEl.className = 'result err';
+      }
+    });
+
+    async function simulateLoad() {
+      const btn = document.getElementById('load-btn');
+      const result = document.getElementById('load-result');
+      btn.disabled = true;
+      result.textContent = 'Waiting…';
+      result.className = 'inline-msg dim';
+      try {
+        const resp = await fetch('/items/slow');
+        const data = await resp.json();
+        result.textContent = `Done — ${data.latency_ms} ms`;
+        result.className = 'inline-msg ok';
+      } catch {
+        result.textContent = 'Request failed.';
+        result.className = 'inline-msg err';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function simulateError() {
+      const btn = document.getElementById('error-btn');
+      const result = document.getElementById('error-result');
+      btn.disabled = true;
+      result.textContent = '';
+      try {
+        const resp = await fetch('/items/error');
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          result.textContent = `Error received: ${data.detail || resp.statusText}`;
+          result.className = 'inline-msg err';
+        } else {
+          result.textContent = 'Unexpected success?';
+          result.className = 'inline-msg dim';
+        }
+      } catch {
+        result.textContent = 'Request failed.';
+        result.className = 'inline-msg err';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    loadStatus();
+    loadItems();
+  </script>
+</body>
+</html>

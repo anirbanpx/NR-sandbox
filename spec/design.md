@@ -52,7 +52,9 @@ NR-sandbox/
 │   ├── main.py              # FastAPI: /health, /items CRUD, /slow, /error
 │   ├── worker.py            # Background process
 │   ├── telemetry.py         # OTel SDK setup (traces + metrics + logs)
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── static/
+│       └── index.html       # Demo UI (vanilla JS, served at /)
 ├── loadgen/
 │   └── locustfile.py        # Realistic HTTP traffic simulation
 ├── collector/
