@@ -73,3 +73,30 @@ def test_error_endpoint():
     resp = client.get("/items/error")
     assert resp.status_code == 500
     assert resp.json()["detail"] == "intentional error"
+
+
+def test_update_item(mock_redis):
+    mock_redis.exists.return_value = True
+    resp = client.put("/items/widget", json={"value": "red"})
+    assert resp.status_code == 200
+    assert resp.json() == {"name": "widget", "value": "red"}
+    mock_redis.set.assert_called_once_with("item:widget", "red")
+
+
+def test_update_item_not_found(mock_redis):
+    mock_redis.exists.return_value = False
+    resp = client.put("/items/ghost", json={"value": "anything"})
+    assert resp.status_code == 404
+
+
+def test_delete_item(mock_redis):
+    mock_redis.exists.return_value = True
+    resp = client.delete("/items/widget")
+    assert resp.status_code == 204
+    mock_redis.delete.assert_called_once_with("item:widget")
+
+
+def test_delete_item_not_found(mock_redis):
+    mock_redis.exists.return_value = False
+    resp = client.delete("/items/ghost")
+    assert resp.status_code == 404

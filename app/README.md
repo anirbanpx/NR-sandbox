@@ -7,13 +7,15 @@ observability stacks.
 
 ### `main.py` — API server
 
-Five endpoints:
+Seven endpoints (full CRUD + observability signals):
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness check |
 | GET | `/items` | Read all items from Redis |
-| POST | `/items` | Write an item to Redis |
+| POST | `/items` | Create an item in Redis |
+| PUT | `/items/{name}` | Update an item's value (404 if not found) |
+| DELETE | `/items/{name}` | Delete an item (404 if not found) |
 | GET | `/items/slow` | Sleeps 1.5–3s — drives latency signal |
 | GET | `/items/error` | Returns HTTP 500 — drives error rate signal |
 

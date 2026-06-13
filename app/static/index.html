@@ -27,7 +27,7 @@
     .err  { color: #c62828; }
     .dim  { color: #777; }
     ul { list-style: none; padding: 0; }
-    ul li { padding: 0.25rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+    ul li { padding: 0.35rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
     ul li:last-child { border-bottom: none; }
     form { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-end; margin-top: 0.4rem; }
     input {
@@ -42,6 +42,9 @@
     button:disabled { background: #90a4ae; cursor: not-allowed; }
     button.secondary { background: #546e7a; }
     button.secondary:hover:not(:disabled) { background: #37474f; }
+    button.danger { background: #b71c1c; }
+    button.danger:hover:not(:disabled) { background: #7f0000; }
+    button.sm { padding: 0.25rem 0.55rem; font-size: 0.8rem; }
     .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
     .inline-msg { font-size: 0.85rem; margin-left: 0.4rem; }
   </style>
@@ -96,6 +99,8 @@
   </section>
 
   <script>
+    let _items = [];
+
     async function loadStatus() {
       const el = document.getElementById('status-badge');
       el.textContent = 'checking…';
@@ -117,14 +122,73 @@
       try {
         const resp = await fetch('/items');
         const data = await resp.json();
-        const entries = Object.entries(data);
-        if (entries.length === 0) {
+        _items = Object.entries(data).map(([name, value]) => ({ name, value }));
+        if (_items.length === 0) {
           ul.innerHTML = '<li class="dim">No items yet.</li>';
         } else {
-          ul.innerHTML = entries.map(([k, v]) => `<li><strong>${esc(k)}</strong>: ${esc(v)}</li>`).join('');
+          ul.innerHTML = _items.map((item, i) => `
+            <li id="item-${i}">
+              <div class="row">
+                <span style="flex:1"><strong>${esc(item.name)}</strong>: ${esc(item.value)}</span>
+                <button class="sm secondary" onclick="startEdit(${i})">Edit</button>
+                <button class="sm danger" onclick="deleteItem(${i})">Delete</button>
+              </div>
+            </li>`).join('');
         }
       } catch {
         ul.innerHTML = '<li class="err">Failed to load items.</li>';
+      }
+    }
+
+    function startEdit(i) {
+      const { name, value } = _items[i];
+      const li = document.getElementById(`item-${i}`);
+      li.innerHTML = `
+        <div class="row">
+          <strong style="white-space:nowrap">${esc(name)}</strong>:
+          <input id="edit-input-${i}" type="text" value="${esc(value)}" style="flex:1;min-width:80px">
+          <button class="sm" onclick="saveEdit(${i})">Save</button>
+          <button class="sm secondary" onclick="loadItems()">Cancel</button>
+        </div>`;
+      document.getElementById(`edit-input-${i}`).focus();
+    }
+
+    async function saveEdit(i) {
+      const { name } = _items[i];
+      const input = document.getElementById(`edit-input-${i}`);
+      const value = input.value.trim();
+      if (!value) return;
+      input.disabled = true;
+      try {
+        const resp = await fetch(`/items/${encodeURIComponent(name)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value }),
+        });
+        if (resp.ok) {
+          loadItems();
+        } else {
+          input.disabled = false;
+          input.style.borderColor = '#c62828';
+        }
+      } catch {
+        input.disabled = false;
+      }
+    }
+
+    async function deleteItem(i) {
+      const { name } = _items[i];
+      const li = document.getElementById(`item-${i}`);
+      li.style.opacity = '0.4';
+      try {
+        const resp = await fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        if (resp.status === 204) {
+          loadItems();
+        } else {
+          li.style.opacity = '';
+        }
+      } catch {
+        li.style.opacity = '';
       }
     }
 
@@ -200,7 +264,11 @@
     }
 
     function esc(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
     loadStatus();

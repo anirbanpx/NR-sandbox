@@ -5,11 +5,13 @@ Run locally:    locust -f loadgen/locustfile.py --host http://localhost:8000
 Run headless:   locust -f loadgen/locustfile.py --host http://<ec2-ip> \
                     --headless -u 20 -r 2 --run-time 10m
 
-Traffic mix mirrors a typical read-heavy API:
-  80% GET  /items       — baseline read throughput
-  15% POST /items       — write traffic with unique payloads
-   4% GET  /items/slow  — latency spike signal (p95/p99)
-   1% GET  /items/error — error rate signal
+Traffic mix mirrors a read-heavy CRUD API:
+  74% GET    /items          — baseline read throughput
+  13% POST   /items          — write traffic, grows item pool
+   7% PUT    /items/{name}   — updates on existing items
+   4% GET    /items/slow     — latency spike signal (p95/p99)
+   1% DELETE /items/{name}   — rare deletes, keeps pool stable
+   1% GET    /items/error    — error rate signal
 """
 import random
 import string
@@ -22,17 +24,31 @@ def _random_string(length: int = 8) -> str:
 
 class APIUser(HttpUser):
     wait_time = between(0.5, 2.0)
+    _known_names: list = []  # shared across all user instances
 
-    @task(80)
+    @task(74)
     def list_items(self):
         self.client.get("/items", name="/items [GET]")
 
-    @task(15)
+    @task(13)
     def create_item(self):
+        name = _random_string()
         self.client.post(
             "/items",
-            json={"name": _random_string(), "value": _random_string(16)},
+            json={"name": name, "value": _random_string(16)},
             name="/items [POST]",
+        )
+        APIUser._known_names.append(name)
+
+    @task(7)
+    def update_item(self):
+        if not APIUser._known_names:
+            return
+        name = random.choice(APIUser._known_names)
+        self.client.put(
+            f"/items/{name}",
+            json={"value": _random_string(16)},
+            name="/items/{name} [PUT]",
         )
 
     @task(4)
@@ -42,6 +58,20 @@ class APIUser(HttpUser):
             "/items/slow", name="/items/slow", timeout=10, catch_response=True
         ) as resp:
             if resp.status_code == 200:
+                resp.success()
+
+    @task(1)
+    def delete_item(self):
+        if not APIUser._known_names:
+            return
+        name = APIUser._known_names.pop(random.randrange(len(APIUser._known_names)))
+        with self.client.delete(
+            f"/items/{name}",
+            name="/items/{name} [DELETE]",
+            catch_response=True,
+        ) as resp:
+            # 404 is acceptable — another user may have deleted this item already
+            if resp.status_code in (204, 404):
                 resp.success()
 
     @task(1)

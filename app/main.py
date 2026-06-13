@@ -3,7 +3,7 @@ import time
 import random
 import logging
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -38,6 +38,10 @@ class Item(BaseModel):
     value: str
 
 
+class ItemUpdate(BaseModel):
+    value: str
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -54,6 +58,24 @@ def create_item(item: Item, r: redis_lib.Redis = Depends(get_redis)):
     r.set(f"item:{item.name}", item.value)
     logger.info("item created: %s", item.name)
     return {"name": item.name, "value": item.value}
+
+
+@app.put("/items/{name}")
+def update_item(name: str, update: ItemUpdate, r: redis_lib.Redis = Depends(get_redis)):
+    if not r.exists(f"item:{name}"):
+        raise HTTPException(status_code=404, detail="item not found")
+    r.set(f"item:{name}", update.value)
+    logger.info("item updated: %s", name)
+    return {"name": name, "value": update.value}
+
+
+@app.delete("/items/{name}", status_code=204)
+def delete_item(name: str, r: redis_lib.Redis = Depends(get_redis)):
+    if not r.exists(f"item:{name}"):
+        raise HTTPException(status_code=404, detail="item not found")
+    r.delete(f"item:{name}")
+    logger.info("item deleted: %s", name)
+    return Response(status_code=204)
 
 
 @app.get("/items/slow")

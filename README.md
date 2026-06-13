@@ -29,8 +29,8 @@ and what does it take to get there?
                         └─────────────────────────────────────┘
 ```
 
-**FastAPI app** — five endpoints: read items, write items, an intentionally slow endpoint
-(1.5–3s latency), and an intentional 500 error. Backed by Redis for state. Ships a
+**FastAPI app** — full CRUD on items (`GET`/`POST`/`PUT`/`DELETE`), plus an intentionally
+slow endpoint (1.5–3s latency) and an intentional 500 error. Backed by Redis. Ships a
 bare-bone browser UI at `/` for live demos (no curl needed).
 
 **Background worker** — polls a Redis queue and processes jobs. Intentionally not
@@ -146,4 +146,4 @@ locust -f loadgen/locustfile.py --host http://localhost \
 locust -f loadgen/locustfile.py --host http://<ec2-ip>
 ```
 
-Traffic mix: 80% GET /items · 15% POST /items · 4% GET /items/slow · 1% GET /items/error
+Traffic mix: 74% GET /items · 13% POST /items · 7% PUT /items/{name} · 4% GET /items/slow · 1% DELETE /items/{name} · 1% GET /items/error
