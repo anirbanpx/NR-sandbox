@@ -11,6 +11,7 @@ set -euo pipefail
 
 APP_DIR=/opt/nr-sandbox
 OTEL_VERSION=0.103.0
+NRDOT_VERSION=1.16.0
 
 # Load .env if present
 ENV_FILE="${APP_DIR}/.env"
@@ -96,9 +97,10 @@ if [ -n "$NR_LICENSE_KEY" ]; then
         cat > /etc/newrelic-infra.yml <<NRCFG
 license_key: ${NR_LICENSE_KEY}
 collector_url: https://infra-api.eu01.nr-data.net
+enable_process_metrics: true
 NRCFG
     else
-        echo "license_key: ${NR_LICENSE_KEY}" > /etc/newrelic-infra.yml
+        printf "license_key: %s\nenable_process_metrics: true\n" "${NR_LICENSE_KEY}" > /etc/newrelic-infra.yml
     fi
     curl -fsSL -o /etc/yum.repos.d/newrelic-infra.repo \
         https://download.newrelic.com/infrastructure_agent/linux/yum/el/9/x86_64/newrelic-infra.repo
@@ -107,6 +109,21 @@ NRCFG
     echo "    New Relic Infrastructure agent running"
 else
     echo "    NR_LICENSE_KEY not set — skipping New Relic agent (add key and re-run to enable)"
+fi
+
+# ── NRDOT Collector (run alongside infra agent to compare OTel vs proprietary data models) ──
+if [ -n "$NR_LICENSE_KEY" ]; then
+    echo "==> installing NRDOT collector v${NRDOT_VERSION}"
+    curl -fsSL \
+        "https://github.com/newrelic/nrdot-collector-releases/releases/download/${NRDOT_VERSION}/nrdot-collector_${NRDOT_VERSION}_linux_x86_64.rpm" \
+        --location --output /tmp/nrdot-collector.rpm
+    rpm -i /tmp/nrdot-collector.rpm
+    # License key only — process metrics intentionally left unconfigured (default behaviour test)
+    echo "NEW_RELIC_LICENSE_KEY=${NR_LICENSE_KEY}" | tee -a /etc/nrdot-collector/nrdot-collector.conf > /dev/null
+    systemctl reload-or-restart nrdot-collector.service
+    echo "    NRDOT collector running"
+else
+    echo "    NR_LICENSE_KEY not set — skipping NRDOT collector"
 fi
 
 # ── Systemd services ──────────────────────────────────────────────────────────

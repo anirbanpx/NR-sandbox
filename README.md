@@ -79,7 +79,7 @@ collector/
 infra/
   provision-ec2.sh  One-time EC2 setup (key pair, security group, instance)
   deploy.sh         Sync repo + run setup-ec2.sh
-  setup-ec2.sh      Idempotent bootstrap: installs app, NR agent, OTel Collector
+  setup-ec2.sh      Idempotent bootstrap: installs app, NR agent, NRDOT collector, OTel Collector
   teardown-ec2.sh   Terminate instance and clean up AWS resources
   nginx.conf        Reverse proxy config
   .env.example      Required environment variables
@@ -147,12 +147,16 @@ curl http://<public-ip>/health
 
 | | New Relic | Grafana Cloud |
 |---|---|---|
-| Agent | NR Infrastructure agent | OTel Collector contrib |
+| Agent | NR Infrastructure agent + NRDOT v1.16.0¹ | OTel Collector contrib |
 | Transport | Proprietary (NR ingest) | OTLP/HTTP |
 | Host metrics | Yes (built-in) | Yes (hostmetrics receiver) |
 | Per-process metrics | Yes (built-in) | Yes (process scraper) |
 | App traces | NR APM agent (separate) | OTel SDK → Collector |
 | EU region | `eu0*` key prefix + `collector_url` | endpoint URL contains region |
+
+¹ NRDOT (`nrdot-collector`) is NR's production-grade OTel distribution, installed alongside the
+infra agent to cross-check default process-metrics behaviour on the OTel path. Both ship to New
+Relic; the infra agent is the primary collector.
 
 ---
 
