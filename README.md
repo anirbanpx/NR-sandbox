@@ -22,7 +22,7 @@ visibility out of the box, and what does it take to actually get there?
 | 🖼️ **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
 | 🛠️ **The build** | The dual-instrumented workload I deployed — real traffic, real host | [Architecture ↓](#observability-architecture) · [app/](app/) · [infra/](infra/) |
 | 🎨 **Mock source** | Prototype source + a static panel export | [prototype/](prototype/) · [docs/mocks/](docs/mocks/) |
-| 🎥 **Demo video** | ~4-min walkthrough: AWS console, live web app, Grafana + New Relic side by side | **[▶ Watch on YouTube](https://youtu.be/TQgK1YVJlbc)** |
+| 🎥 **Demo video** | ~1.5-min walkthrough: AWS console, live web app, Grafana + New Relic side by side | **[▶ Watch on YouTube](https://youtu.be/TQgK1YVJlbc)** |
 
 > **New here?** Open the **prototype** first — it tells the story in about a minute — then read the
 > **friction log** for the evidence behind it. Everything below documents the build that produced both.
