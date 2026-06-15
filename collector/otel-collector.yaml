@@ -42,6 +42,17 @@ processors:
     timeout: 10s
     send_batch_size: 1000
 
+  # Copy process identity from Resource attributes → DataPoint attributes so they
+  # become queryable Prometheus labels. Without this, process.executable.name lives
+  # at the Resource level and is invisible to PromQL.
+  transform/process_labels:
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["process_executable_name"], resource.attributes["process.executable.name"])
+          - set(attributes["process_pid"], resource.attributes["process.pid"])
+          - set(attributes["process_owner"], resource.attributes["process.owner"])
+
   resourcedetection:
     detectors: [ec2, env]
     timeout: 5s
@@ -52,6 +63,9 @@ exporters:
     headers:
       authorization: "Basic ${env:GRAFANA_OTLP_AUTH}"
     compression: gzip
+
+  prometheus:
+    endpoint: "0.0.0.0:9464"
 
   debug:
     verbosity: basic
@@ -69,8 +83,8 @@ service:
 
     metrics:
       receivers: [otlp, hostmetrics]
-      processors: [resourcedetection, batch]
-      exporters: [otlphttp]
+      processors: [resourcedetection, batch, transform/process_labels]
+      exporters: [otlphttp, prometheus]
 
     logs:
       receivers: [otlp]
