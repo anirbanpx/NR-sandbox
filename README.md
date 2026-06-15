@@ -1,10 +1,29 @@
-# NR Sandbox
+# NR Sandbox — process monitoring: a hands-on teardown + prototype
 
-A minimal process-monitoring prototype built to compare two observability stacks —
-**New Relic Infrastructure** and **Grafana Cloud via OpenTelemetry** — on a single EC2 host.
+This repo is the hands-on half of a product exercise on **why process monitoring is foundational
+yet under-adopted** — and what to do about it. Instead of reviewing docs, I deployed a real
+workload on AWS, instrumented it with **two stacks in parallel** (New Relic + OpenTelemetry /
+Grafana), broke it on purpose, and documented every place an operator silently falls off between
+*install* and *trust* — then designed a fix and built it as a clickable prototype.
 
-The core question: how quickly does each stack surface per-process visibility out of the box,
-and what does it take to get there?
+The core question throughout: how quickly does each stack surface trustworthy per-process
+visibility out of the box, and what does it take to actually get there?
+
+---
+
+## 👋 Reviewer's guide — start here
+
+| Deliverable | What it is | Open it |
+|---|---|---|
+| 🎯 **Interactive prototype** | The proposed **"Process Coverage"** view — a clickable 4-screen fix with a built-in guided walkthrough | **[▶ Launch the prototype](https://anirbanpx.github.io/NR-sandbox/prototype/)** |
+| 📋 **Friction log** | The core findings: a step-by-step teardown of the operator journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** |
+| 🖼️ **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
+| 🛠️ **The build** | The dual-instrumented workload I deployed — real traffic, real host | [Architecture ↓](#observability-architecture) · [app/](app/) · [infra/](infra/) |
+| 🎨 **Mock source** | Prototype source + a static panel export | [prototype/](prototype/) · [docs/mocks/](docs/mocks/) |
+| 🎥 **Demo video** | ~4-min walkthrough: the problem, live → the proposed fix | _link added with submission_ |
+
+> **New here?** Open the **prototype** first — it tells the story in about a minute — then read the
+> **friction log** for the evidence behind it. Everything below documents the build that produced both.
 
 ---
 
@@ -94,6 +113,15 @@ spec/
   requirements.md   Problem statement and goals
   design.md         Architecture decisions + demo narrative
   implementation.md Deployment steps + verification checklist
+
+docs/             Committee-facing deliverables
+  friction-log.md The product teardown — findings + screenshots
+  images/         Screenshot evidence behind the findings
+  mocks/          Static mock export (process-coverage panel)
+
+prototype/        The clickable "Process Coverage" prototype (hosted on GitHub Pages)
+  index.html      Self-contained 4-screen interactive mock
+  fonts/          Self-hosted Inter (no external dependency)
 ```
 
 ---

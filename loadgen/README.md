@@ -7,9 +7,11 @@ latency, and error rate signals visible in both observability stacks.
 
 | Weight | Endpoint | Purpose |
 |---|---|---|
-| 80% | GET `/items` | Baseline read throughput |
-| 15% | POST `/items` | Write traffic with unique payloads |
+| 74% | GET `/items` | Baseline read throughput |
+| 13% | POST `/items` | Write traffic, grows the item pool |
+| 7% | PUT `/items/{name}` | Updates on existing items |
 | 4% | GET `/items/slow` | Latency spike signal (p95/p99) |
+| 1% | DELETE `/items/{name}` | Rare deletes, keeps the pool stable |
 | 1% | GET `/items/error` | Error rate signal |
 
 ## Running
