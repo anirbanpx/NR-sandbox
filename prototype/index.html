@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Process Coverage — interactive prototype</title>
+<style>
+  /* Inter — self-hosted (no external dependency; works offline) */
+  @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/inter-400.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/inter-500.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/inter-600.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/inter-700.woff2') format('woff2'); }
+  /* ---- New Relic design tokens (extracted from live light-theme screenshots) ---- */
+  :root {
+    --nr-canvas: #ffffff;
+    --nr-bg: #f3f4f4;
+    --nr-nav: #f7f8f8;
+    --nr-border: #e3e4e5;
+    --nr-border-strong: #d5d7d9;
+    --nr-text: #1d252c;
+    --nr-text-muted: #6e7780;
+    --nr-link: #0e7c86;
+    --nr-link-bg: #e9f3f4;
+    --nr-green: #00ac69;
+    --nr-green-dark: #007e4d;
+    --nr-amber-bg: #fdf6e3;
+    --nr-amber-border: #e8d48a;
+    --nr-amber-text: #8a6d1a;
+    --nr-amber: #e8a838;
+    --nr-crit-bg: #fcf7ec;
+    --nr-green-bg: #e6f4ea;
+    --nr-purple: #7b5cc4;
+    --nr-row-hover: #f7f8f8;
+    --radius: 4px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font); background: #d9dcde; color: var(--nr-text);
+    font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased; letter-spacing: -0.1px;
+  }
+  /* tabular figures for all numeric data, like NR */
+  .num, table { font-feature-settings: "tnum" 1, "cv05" 1; }
+
+  /* ---- App shell ---- */
+  .stage {
+    max-width: 1220px; margin: 20px auto 96px; background: var(--nr-canvas);
+    border: 1px solid var(--nr-border); border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12); overflow: hidden;
+    display: grid; grid-template-columns: 214px 1fr; min-height: 660px; position: relative;
+  }
+  .topbar {
+    grid-column: 1 / 3; display: flex; align-items: center; gap: 14px;
+    padding: 9px 16px; border-bottom: 1px solid var(--nr-border); background: #fff;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: -0.3px; }
+  .logo .mark { width: 22px; height: 22px; border-radius: 5px; background: var(--nr-green); display: inline-block; }
+  .topsearch-wrap { flex: 1; max-width: 480px; position: relative; }
+  .topsearch { width: 100%; border: 1px solid var(--nr-border-strong); border-radius: var(--radius); padding: 7px 12px; font-size: 12.5px; color: var(--nr-text-muted); background: #fafbfb; font-family: var(--font); }
+  .topsearch-wrap .kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: #9aa3a9; border: 1px solid var(--nr-border-strong); border-radius: 3px; padding: 1px 5px; background: #fff; }
+  .topicons { margin-left: auto; display: flex; gap: 13px; align-items: center; color: var(--nr-text-muted); font-size: 14px; }
+  .topicons .plus { width: 24px; height: 24px; border-radius: 50%; background: var(--nr-green); color: #fff; display: grid; place-items: center; font-size: 15px; }
+  .topicons .avatar { width: 24px; height: 24px; border-radius: 50%; background: #1d252c; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+
+  /* left nav */
+  .nav { background: var(--nr-nav); border-right: 1px solid var(--nr-border); padding: 10px 0; font-size: 12.5px; }
+  .nav .group { color: #9aa3a9; font-size: 10px; letter-spacing: .5px; text-transform: uppercase; padding: 12px 18px 5px; }
+  .nav a { display: flex; align-items: center; gap: 9px; padding: 6.5px 18px; color: var(--nr-text); text-decoration: none; }
+  .nav a:hover { background: #eef0f0; }
+  .nav a.active { background: var(--nr-link-bg); color: var(--nr-link); font-weight: 600; box-shadow: inset 3px 0 0 var(--nr-link); }
+  .nav .ic { width: 15px; text-align: center; color: var(--nr-text-muted); font-size: 12px; }
+  .nav a.active .ic { color: var(--nr-link); }
+
+  /* main column */
+  .main { position: relative; min-width: 0; }
+  .view { display: none; }
+  .view.active { display: block; animation: fade .22s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  .breadcrumb {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 22px; border-bottom: 1px solid var(--nr-border);
+    font-size: 13px; color: var(--nr-text-muted);
+  }
+  .crumbs { display: flex; align-items: center; gap: 0; }
+  .crumbs a { color: var(--nr-link); text-decoration: none; }
+  .crumbs .sep { margin: 0 7px; color: #b6bbbf; }
+  .crumbs .current { color: var(--nr-text); font-weight: 600; }
+  .crumbs .ic { color: #b6bbbf; margin-left: 7px; font-size: 12px; }
+  .bc-right { display: flex; align-items: center; gap: 14px; font-size: 12px; }
+  .bc-right a { color: var(--nr-link); text-decoration: none; }
+  .since { color: var(--nr-link); }
+
+  /* account health banner (F4 — notification void) */
+  .acct-banner { display: flex; align-items: center; gap: 11px; margin: 0; padding: 10px 22px; background: var(--nr-amber-bg); border-bottom: 1px solid var(--nr-amber-border); font-size: 12.5px; color: var(--nr-amber-text); }
+  .acct-banner .ico { font-size: 14px; }
+  .acct-banner b { font-weight: 600; }
+  .acct-banner a { margin-left: auto; color: var(--nr-amber-text); font-weight: 600; text-decoration: underline; white-space: nowrap; }
+  .acct-banner .x { margin-left: 12px; color: #b9a45f; cursor: pointer; }
+
+  .panel-head { padding: 18px 22px 8px; }
+  .panel-head h1 { font-size: 20px; font-weight: 600; letter-spacing: -.4px; display: flex; align-items: center; gap: 8px; }
+  .panel-head .info { color: #b6bbbf; font-size: 14px; }
+  .panel-sub { color: var(--nr-text-muted); font-size: 12.5px; margin-top: 2px; }
+  .panel-sub.proposed { color: var(--nr-link); font-weight: 600; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 6px 22px 14px; }
+  .search { flex: 1; max-width: 320px; border: 1px solid var(--nr-border-strong); border-radius: var(--radius); padding: 6px 10px; font-size: 12.5px; color: var(--nr-text-muted); background: #fff; font-family: var(--font); }
+  .seg { display: inline-flex; border: 1px solid var(--nr-border-strong); border-radius: var(--radius); overflow: hidden; font-size: 12px; }
+  .seg span { padding: 6px 12px; color: var(--nr-text-muted); background: #fff; }
+  .seg span.on { background: var(--nr-link-bg); color: var(--nr-link); font-weight: 600; }
+  .seg .sep { padding: 0; width: 1px; background: var(--nr-border-strong); }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: var(--nr-text-muted); padding: 9px 22px; border-top: 1px solid var(--nr-border); border-bottom: 1px solid var(--nr-border); background: #fafbfb; }
+  thead th.num { text-align: right; }
+  tbody td { padding: 11px 22px; border-bottom: 1px solid var(--nr-border); font-size: 13px; vertical-align: middle; }
+  tbody td.num { text-align: right; }
+  tbody tr:hover { background: var(--nr-row-hover); }
+  .pname { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .muted { color: var(--nr-text-muted); }
+
+  .links { display: flex; flex-direction: column; gap: 4px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--nr-border-strong); border-radius: 12px; padding: 2px 9px; font-size: 12px; color: var(--nr-link); background: #fff; text-decoration: none; width: max-content; }
+  .chip .bi { color: #9aa3a9; font-size: 11px; }
+  .hostlink { color: var(--nr-link); text-decoration: none; font-size: 11.5px; display: inline-flex; gap: 5px; align-items: center; }
+  .hostlink .ic { color: #9aa3a9; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+  .badge.ok { color: var(--nr-green-dark); }
+  .badge.crit { color: var(--nr-purple); font-weight: 600; }
+  .badge.warn { color: var(--nr-amber-text); }
+  .badge-stack { display: flex; flex-direction: column; gap: 3px; }
+  .why { font-size: 11px; color: var(--nr-text-muted); margin-top: 1px; }
+  .why b { color: var(--nr-purple); font-weight: 600; }
+
+  .cov-banner { margin: 14px 22px 6px; border: 1px solid #bfe6cf; background: var(--nr-green-bg); border-radius: 6px; padding: 14px 16px; }
+  .cov-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .cov-top b { font-size: 14px; }
+  .cov-top .s { color: #2c6b46; font-size: 12.5px; }
+  .meter { display: flex; height: 9px; border-radius: 5px; overflow: hidden; margin-top: 11px; background: #e3e7e4; }
+  .meter i { display: block; height: 100%; }
+  .meter .mon { background: var(--nr-green); }
+  .meter .crit { background: var(--nr-amber); }
+  .meter .oth { background: #cdd2d4; }
+  .legend-mini { display: flex; gap: 16px; margin-top: 8px; font-size: 11.5px; color: var(--nr-text-muted); }
+  .legend-mini span::before { content: "●"; margin-right: 5px; }
+  .legend-mini .l-mon::before { color: var(--nr-green); }
+  .legend-mini .l-crit::before { color: var(--nr-amber); }
+  .legend-mini .l-oth::before { color: #cdd2d4; }
+
+  tr.crit-row { background: var(--nr-crit-bg) !important; }
+  tr.crit-row:hover { background: #f9f1de !important; }
+
+  .btn { border: none; border-radius: var(--radius); cursor: pointer; font-family: var(--font); font-size: 12.5px; font-weight: 600; padding: 7px 14px; transition: background .15s, box-shadow .15s; }
+  .btn-primary { background: var(--nr-green); color: #fff; }
+  .btn-primary:hover { background: var(--nr-green-dark); }
+  .btn-ghost { background: #fff; color: var(--nr-text); border: 1px solid var(--nr-border-strong); }
+  .btn-ghost:hover { background: #f3f4f4; }
+  .pulse { animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,172,105,0); } 50% { box-shadow: 0 0 0 4px rgba(0,172,105,.18); } }
+
+  .watch-wrap { position: relative; display: inline-block; }
+  .btn-watch { background: var(--nr-green); color: #fff; padding: 6px 13px; }
+  .btn-watch:hover { background: var(--nr-green-dark); }
+  .tip { position: absolute; right: 0; bottom: calc(100% + 8px); width: 244px; background: #1d252c; color: #e7eaec; font-size: 11.5px; font-weight: 400; line-height: 1.5; padding: 10px 12px; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.3); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 20; letter-spacing: 0; }
+  .tip::after { content: ""; position: absolute; right: 22px; top: 100%; border: 6px solid transparent; border-top-color: #1d252c; }
+  .tip b { color: #fff; }
+  .tip .ok { color: #5fd6a3; }
+  .watch-wrap:hover .tip { opacity: 1; }
+
+  .moves { display: flex; gap: 30px; padding: 18px 22px 22px; border-top: 1px solid var(--nr-border); margin-top: 8px; }
+  .moves .m { flex: 1; }
+  .moves .m b { color: var(--nr-green-dark); }
+  .moves .m .d { color: var(--nr-text-muted); margin-top: 3px; }
+
+  /* modal overlay (NRAI) */
+  .modal-layer { position: absolute; inset: 0; display: none; align-items: flex-start; justify-content: center; background: rgba(29,37,44,.42); padding-top: 64px; z-index: 30; overflow-y: auto; }
+  .modal-layer.active { display: flex; animation: fade .2s ease; }
+  .modal { width: 560px; background: #fff; border: 1px solid var(--nr-border); border-radius: 8px; box-shadow: 0 16px 44px rgba(0,0,0,.28); overflow: hidden; margin-bottom: 40px; }
+  .modal-head { padding: 17px 22px; border-bottom: 1px solid var(--nr-border); }
+  .modal-head h2 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 9px; }
+  .modal-head .sub { font-size: 12px; color: var(--nr-text-muted); margin-top: 3px; font-weight: 400; }
+  .spark { color: var(--nr-green); font-size: 16px; }
+  .modal-body { padding: 18px 22px 22px; }
+  .nl-input { display: flex; align-items: center; gap: 9px; border: 1px solid var(--nr-border-strong); border-radius: 6px; padding: 11px 13px; font-size: 13.5px; color: var(--nr-text); background: #fafbfb; margin-bottom: 16px; }
+  .nl-input .ret { margin-left: auto; color: var(--nr-text-muted); }
+  .gen-label { font-size: 12.5px; color: var(--nr-text-muted); margin-bottom: 10px; }
+  .cond-row { display: flex; align-items: center; border: 1px solid var(--nr-border); border-bottom: none; padding: 11px 14px; font-size: 12.5px; }
+  .cond-row:first-of-type { border-radius: 6px 6px 0 0; }
+  .cond-row.last { border-bottom: 1px solid var(--nr-border); border-radius: 0 0 6px 6px; }
+  .cond-row .k { width: 132px; color: var(--nr-text-muted); flex: none; }
+  .cond-row .v { color: var(--nr-text); font-weight: 500; }
+  .cond-row .check { margin-left: auto; color: var(--nr-green); font-weight: 700; }
+  .guard { margin-top: 16px; border: 1px solid var(--nr-amber-border); background: var(--nr-amber-bg); color: var(--nr-amber-text); border-radius: 6px; padding: 11px 14px; font-size: 12.5px; }
+  .guard.live { border-color: #bfe6cf; background: var(--nr-green-bg); color: #2c6b46; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .success-head h2 { color: var(--nr-green-dark); }
+
+  /* Test this alert (F5 — validation void) */
+  .validate { margin-top: 18px; border: 1px dashed var(--nr-border-strong); border-radius: 6px; padding: 13px 15px; }
+  .validate .row { display: flex; align-items: center; gap: 12px; }
+  .validate .row .t { font-size: 12.5px; color: var(--nr-text); }
+  .validate .row .t .muted { display: block; font-size: 11.5px; }
+  .validate .btn { margin-left: auto; }
+  .test-result { display: none; margin-top: 12px; padding: 12px 14px; background: var(--nr-green-bg); border: 1px solid #bfe6cf; border-radius: 6px; font-size: 12.5px; color: #2c6b46; line-height: 1.6; }
+  .test-result.show { display: block; animation: fade .25s ease; }
+  .test-result b { color: var(--nr-green-dark); }
+  .chain { margin-top: 7px; font-size: 11.5px; color: #3a7a55; }
+
+  /* prototype nav bar */
+  .protobar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; background: #1d252c; color: #fff; border-radius: 30px; padding: 8px 10px; display: flex; align-items: center; gap: 4px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.28); z-index: 60; }
+  .protobar button { background: transparent; border: none; color: #cfd4d8; cursor: pointer; font-size: 12.5px; padding: 6px 12px; border-radius: 20px; font-family: var(--font); }
+  .protobar button:hover:not(:disabled) { background: #2c373f; color: #fff; }
+  .protobar button:disabled { opacity: .35; cursor: default; }
+  .protobar .step { padding: 6px 14px; color: #fff; font-weight: 600; white-space: nowrap; border-left: 1px solid #38434b; border-right: 1px solid #38434b; margin: 0 4px; }
+  .protobar .step small { color: #9aa3a9; font-weight: 400; margin-left: 6px; }
+
+  .hint { display: inline-flex; align-items: center; gap: 6px; margin: 12px 22px 0; background: var(--nr-link-bg); border: 1px solid #bfe0e3; color: var(--nr-link); border-radius: 20px; padding: 6px 13px; font-size: 12px; }
+  .clickable { cursor: pointer; }
+
+  /* ---- reviewer guidance layer ---- */
+  .guide-bar { display: flex; align-items: center; gap: 9px; margin: 12px 22px 0; background: var(--nr-link-bg); border: 1px solid #bfe0e3; color: var(--nr-link); border-radius: 6px; padding: 9px 13px; font-size: 12px; }
+  .guide-bar .step-no { background: var(--nr-link); color: #fff; font-weight: 700; font-size: 10.5px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .guide-bar b { color: #0a5b63; }
+  .modal-body .guide-bar { margin: 0 0 15px; }
+  /* pulsing hotspot ring marks the element to click */
+  .hotspot { position: relative; }
+  .hotspot::before { content: ""; position: absolute; inset: -6px; border: 2px solid var(--nr-green); border-radius: 8px; animation: ring 1.5s ease-out infinite; pointer-events: none; }
+  @keyframes ring { 0% { opacity: .85; transform: scale(1); } 70% { opacity: 0; transform: scale(1.14); } 100% { opacity: 0; } }
+  /* hide all guidance for a clean recording */
+  body.guide-off .guide-bar, body.guide-off .hotspot::before, body.guide-off .hint { display: none; }
+  body.guide-off .pulse { animation: none; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ===== top bar ===== -->
+  <div class="topbar">
+    <div class="logo"><span class="mark"></span>new relic</div>
+    <div class="topsearch-wrap">
+      <input class="topsearch" value="Find what you need" />
+      <span class="kbd">⌘ K</span>
+    </div>
+    <div class="topicons"><span>💬</span><span>?</span><span>◳</span><span>🔔</span><span class="plus">+</span><span class="avatar">A</span></div>
+  </div>
+
+  <!-- ===== left nav ===== -->
+  <nav class="nav">
+    <a href="#"><span class="ic">⌘</span> Integrations &amp; Agents</a>
+    <a href="#"><span class="ic">▦</span> All Capabilities</a>
+    <a href="#"><span class="ic">▤</span> Catalogs</a>
+    <div class="group">Workspace</div>
+    <a href="#"><span class="ic">▣</span> Dashboards</a>
+    <a href="#"><span class="ic">◈</span> APM &amp; Services</a>
+    <a href="#"><span class="ic">≣</span> Logs</a>
+    <a href="#"><span class="ic">⌁</span> Traces</a>
+    <a href="#"><span class="ic">◇</span> Synthetic Monitoring</a>
+    <a href="#"><span class="ic">△</span> Alerts</a>
+    <a href="#" class="active"><span class="ic">▟</span> Infrastructure</a>
+    <a href="#"><span class="ic">⎈</span> Kubernetes</a>
+    <a href="#"><span class="ic">◐</span> Browser</a>
+    <a href="#"><span class="ic">▢</span> Mobile</a>
+    <a href="#"><span class="ic">!</span> Errors Inbox</a>
+    <div class="group">Manage</div>
+    <a href="#"><span class="ic">↑</span> Upgrade Now</a>
+  </nav>
+
+  <!-- ===== main column ===== -->
+  <div class="main">
+
+    <!-- ---------- VIEW: today ---------- -->
+    <div class="view active" id="view-today">
+      <div class="breadcrumb">
+        <div class="crumbs"><a href="#">Hosts</a><span class="sep">›</span><span class="current">ip-172-31-12-184.ap-south-2.compute.internal</span><span class="ic">▾</span><span class="ic">☆</span><span class="ic">ⓘ</span></div>
+        <div class="bc-right"><a href="#">Share your feedback</a><span class="since">Since 30 minutes ago</span></div>
+      </div>
+      <div class="acct-banner">
+        <span class="ico">⚠</span>
+        <span><b>4 alert conditions have no notification destination.</b> No one will be paged when these fire — including the auto-created Golden Signal alerts.</span>
+        <a href="#">Set up a destination</a><span class="x">✕</span>
+      </div>
+      <div class="panel-head"><h1>Processes <span class="info">ⓘ</span></h1><div class="panel-sub">62 processes on this host</div></div>
+      <div class="toolbar">
+        <input class="search" value="Search for an attribute" />
+        <div class="seg"><span class="on">CPU %</span><span class="sep"></span><span>Business priority</span></div>
+      </div>
+      <div class="guide-bar"><span class="step-no">1</span><span>Interactive prototype — sorted by CPU, the process that matters is buried below. Click the highlighted <b>Review coverage</b> button to continue (or use the bar at the bottom).</span></div>
+      <table style="margin-top:12px;">
+        <thead><tr><th>Process name</th><th>User</th><th>PID</th><th class="num">CPU % ↓</th><th class="num">CPU user %</th><th class="num">Memory</th></tr></thead>
+        <tbody>
+          <tr><td><div class="pname"><span class="dot" style="background:#3fb1c8"></span>nr-sandbox</div></td><td class="muted">ec2-user</td><td class="muted">4248</td><td class="num">114.08%</td><td class="num">98.20%</td><td class="num">182 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#d75c5c"></span>redis6</div></td><td class="muted">redis</td><td class="muted">1402</td><td class="num">8.85%</td><td class="num">6.11%</td><td class="num">41 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#00ac69"></span>newrelic-infra</div></td><td class="muted">root</td><td class="muted">988</td><td class="num">0.25%</td><td class="num">0.14%</td><td class="num">96 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#9aa3a9"></span>systemd</div></td><td class="muted">root</td><td class="muted">1</td><td class="num">0.24%</td><td class="num">0.17%</td><td class="num">12 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#e8a838"></span>amazon-ssm-agent</div></td><td class="muted">root</td><td class="muted">2002</td><td class="num">0.13%</td><td class="num">0.09%</td><td class="num">58 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#7b5cc4"></span>fluent-bit</div></td><td class="muted">root</td><td class="muted">4375</td><td class="num">0.045%</td><td class="num">0.022%</td><td class="num">9 M</td></tr>
+          <tr style="background:#fcf7ec;"><td><div class="pname"><span class="dot" style="background:#7b5cc4"></span>nr-sandbox-worker</div></td><td class="muted">ec2-user</td><td class="muted">4251</td><td class="num">0.037%</td><td class="num">0.018%</td><td class="num">61 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#9aa3a9"></span>systemd-journald</div></td><td class="muted">root</td><td class="muted">1187</td><td class="num">0.004%</td><td class="num">0.001%</td><td class="num">22 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#9aa3a9"></span>sshd</div></td><td class="muted">root</td><td class="muted">1321</td><td class="num">0.003%</td><td class="num">0.001%</td><td class="num">7 M</td></tr>
+          <tr><td><div class="pname"><span class="dot" style="background:#9aa3a9"></span>chronyd</div></td><td class="muted">chrony</td><td class="muted">901</td><td class="num">0.001%</td><td class="num">0.000%</td><td class="num">3 M</td></tr>
+        </tbody>
+      </table>
+      <div style="padding:14px 22px; display:flex; align-items:center; justify-content:space-between;">
+        <span class="muted" style="font-size:12px;">↑ The payment-queue worker is at rank 7, 0.037% CPU — invisible at a glance.</span>
+        <button class="btn btn-primary clickable hotspot" onclick="go(2)">Review coverage</button>
+      </div>
+    </div>
+
+    <!-- ---------- VIEW: coverage (proposed) ---------- -->
+    <div class="view" id="view-coverage">
+      <div class="breadcrumb">
+        <div class="crumbs"><a href="#">Hosts</a><span class="sep">›</span><span class="current">ip-172-31-12-184.ap-south-2.compute.internal</span><span class="ic">▾</span><span class="ic">☆</span><span class="ic">ⓘ</span></div>
+        <div class="bc-right"><a href="#">Share your feedback</a><span class="since">Since 30 minutes ago</span></div>
+      </div>
+      <div class="acct-banner">
+        <span class="ico">⚠</span>
+        <span><b>4 alert conditions have no notification destination.</b> No one will be paged when these fire.</span>
+        <a href="#">Set up a destination</a><span class="x">✕</span>
+      </div>
+      <div class="panel-head"><h1>Processes <span class="info">ⓘ</span></h1><div class="panel-sub proposed">PROPOSED · Process Coverage view</div></div>
+      <div class="toolbar">
+        <input class="search" value="Search for an attribute" />
+        <div class="seg"><span>CPU %</span><span class="sep"></span><span class="on">Business priority</span></div>
+      </div>
+
+      <div class="guide-bar"><span class="step-no">2</span><span>The buried worker is now flagged <b>★ business-critical</b> &amp; <b>⚠ unmonitored</b>. Click the highlighted <b>Watch</b> button on its row.</span></div>
+
+      <div class="cov-banner">
+        <div class="cov-top">
+          <div><b>Process coverage: 3 of 62 processes monitored</b><br /><span class="s">2 business-critical processes are unmonitored</span></div>
+          <button class="btn btn-primary clickable" onclick="document.getElementById('worker-row').scrollIntoView({behavior:'smooth',block:'center'})">Review coverage</button>
+        </div>
+        <div class="meter"><i class="mon" style="width:4.8%"></i><i class="crit" style="width:3.2%"></i><i class="oth" style="width:92%"></i></div>
+        <div class="legend-mini"><span class="l-mon">3 monitored</span><span class="l-crit">2 business-critical · unmonitored</span><span class="l-oth">57 other</span></div>
+      </div>
+
+      <table style="margin-top:10px;">
+        <thead><tr><th>Process name</th><th>Service ↔ Host</th><th>Coverage</th><th class="num">CPU %</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="pname"><span class="dot" style="background:#3fb1c8"></span>nr-sandbox</div></td>
+            <td><div class="links"><a class="chip" href="#">nr-sandbox <span class="bi">↔</span></a><a class="hostlink" href="#"><span class="ic">▟</span> ip-172-31-12-184</a></div></td>
+            <td><span class="badge ok">✓ Monitored</span></td><td class="num">114.08%</td><td></td>
+          </tr>
+          <tr>
+            <td><div class="pname"><span class="dot" style="background:#d75c5c"></span>redis6</div></td>
+            <td><div class="links"><a class="chip" href="#">nr-sandbox <span class="bi">↔</span></a><a class="hostlink" href="#"><span class="ic">▟</span> ip-172-31-12-184</a></div></td>
+            <td><span class="badge ok">✓ Monitored</span></td><td class="num">8.85%</td><td></td>
+          </tr>
+          <tr class="crit-row" id="worker-row">
+            <td><div class="pname"><span class="dot" style="background:#7b5cc4"></span>nr-sandbox-worker</div></td>
+            <td><div class="links"><a class="chip" href="#">nr-sandbox <span class="bi">↔</span></a><a class="hostlink" href="#"><span class="ic">▟</span> ip-172-31-12-184</a></div></td>
+            <td>
+              <div class="badge-stack">
+                <span class="badge crit">★ Business-critical</span>
+                <span class="badge warn">⚠ Unmonitored</span>
+                <span class="why">on the <b>Checkout</b> journey · <b>Payments</b> workload</span>
+              </div>
+            </td>
+            <td class="num">0.037%</td>
+            <td>
+              <div class="watch-wrap">
+                <button class="btn btn-watch clickable hotspot" onclick="go(3)">Watch</button>
+                <div class="tip">One click configures a <b>gap-safe</b> alert:<br>• Process running <span class="ok">(not raw NRQL)</span><br>• <b>processDisplayName</b> <span class="ok">(right attribute)</span><br>• loss-of-signal <span class="ok">ON</span><br>• → #oncall-payments <span class="ok">(wired)</span></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="pname"><span class="dot" style="background:#9aa3a9"></span>systemd</div></td>
+            <td class="muted">—</td><td><span class="badge ok">✓ Monitored</span></td><td class="num">0.24%</td><td></td>
+          </tr>
+          <tr>
+            <td><div class="pname"><span class="dot" style="background:#7b5cc4"></span>fluent-bit</div></td>
+            <td class="muted">—</td><td><span class="badge ok">✓ Monitored</span></td><td class="num">0.026%</td><td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="moves">
+        <div class="m"><b>① Connect</b><div class="d">Every process ↔ its service ↔ host, navigable both directions — the join that doesn't exist today.</div></div>
+        <div class="m"><b>② Surface the gap</b><div class="d">Unmonitored &amp; business-critical flagged by the journey they serve, not by CPU rank.</div></div>
+        <div class="m"><b>③ One-click Watch</b><div class="d">Gap-safe alert auto-configured: right attribute, loss-of-signal on, destination wired.</div></div>
+      </div>
+    </div>
+
+    <!-- ---------- modal overlay (NRAI propose / alert active) ---------- -->
+    <div class="modal-layer" id="modal-layer">
+      <!-- propose -->
+      <div class="modal" id="modal-propose">
+        <div class="modal-head"><h2><span class="spark">✦</span> Watch with New Relic AI</h2><div class="sub">AI proposes the condition — you confirm before anything is saved.</div></div>
+        <div class="modal-body">
+          <div class="guide-bar"><span class="step-no">3</span><span>AI proposed a gap-safe condition. Review the fields, then click the highlighted <b>Create alert</b> to confirm.</span></div>
+          <div class="nl-input"><span class="spark">✦</span> Alert me if my payment worker stops running <span class="ret">↵</span></div>
+          <div class="gen-label">New Relic AI generated this condition — review before it's saved:</div>
+          <div class="cond-row"><span class="k">Condition type</span><span class="v">Process running — Infrastructure (not raw NRQL)</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Process</span><span class="v">processDisplayName = nr-sandbox-worker</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Threshold</span><span class="v">No processes are running</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Loss of signal</span><span class="v">Enabled — gap-safe</span><span class="check">✓</span></div>
+          <div class="cond-row last"><span class="k">Notify</span><span class="v">#oncall-payments · Slack</span><span class="check">✓</span></div>
+          <div class="guard">⚠ Nothing is saved until you confirm — review and edit any field first.</div>
+          <div class="modal-actions"><button class="btn btn-ghost clickable" onclick="go(2)">Edit</button><button class="btn btn-primary clickable hotspot" onclick="go(4)">Create alert</button></div>
+        </div>
+      </div>
+      <!-- active -->
+      <div class="modal" id="modal-active" style="display:none;">
+        <div class="modal-head success-head"><h2><span class="spark">✓</span> Alert created</h2></div>
+        <div class="modal-body">
+          <div class="guide-bar"><span class="step-no">4</span><span>Done — the alert is live and wired to a destination. Try the highlighted <b>Test this alert</b>, or <b>Restart</b> from the bar below.</span></div>
+          <div class="guard live" style="margin-top:0; margin-bottom:16px;">✓ Alert is live · loss-of-signal armed · notifying <b>#oncall-payments</b></div>
+          <div class="gen-label">Confirmed configuration:</div>
+          <div class="cond-row"><span class="k">Condition type</span><span class="v">Process running — Infrastructure</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Process</span><span class="v">processDisplayName = nr-sandbox-worker</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Threshold</span><span class="v">No processes are running</span><span class="check">✓</span></div>
+          <div class="cond-row"><span class="k">Loss of signal</span><span class="v">Enabled — gap-safe</span><span class="check">✓</span></div>
+          <div class="cond-row last"><span class="k">Notify</span><span class="v">#oncall-payments · Slack</span><span class="check">✓</span></div>
+
+          <!-- F5: validation void — Test this alert (backtest) -->
+          <div class="validate">
+            <div class="row">
+              <div class="t">Verify it actually fires<span class="muted">Backtest against the last 24h — no production failure needed.</span></div>
+              <button class="btn btn-ghost clickable hotspot" id="test-btn" onclick="testAlert()">Test this alert</button>
+            </div>
+            <div class="test-result" id="test-result">
+              <b>✓ Backtested against the last 24h of ProcessSample.</b> This condition would have fired <b>47s</b> after the worker stopped reporting.
+              <div class="chain">Chain verified: condition evaluated → incident opened → workflow triggered → #oncall-payments notified.</div>
+            </div>
+          </div>
+
+          <div class="modal-actions"><button class="btn btn-ghost clickable" onclick="go(1)">↺ Restart</button><button class="btn btn-primary clickable" onclick="go(2)">View alert</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /stage -->
+
+<!-- prototype nav bar -->
+<div class="protobar">
+  <button id="pb-back" onclick="go(current-1)">← Back</button>
+  <div class="step"><span id="pb-name">Processes — today</span><small id="pb-count">1 / 4</small></div>
+  <button id="pb-next" onclick="go(current+1)">Next →</button>
+  <button onclick="go(1)">↺ Restart</button>
+  <button id="guide-toggle" onclick="toggleGuide()">Guide: On</button>
+</div>
+
+<script>
+  const NAMES = { 1: "Processes — today", 2: "Process Coverage — proposed", 3: "NRAI — propose (you confirm)", 4: "Alert — active + validated" };
+  let current = 1;
+  function go(n) {
+    if (n < 1) n = 1; if (n > 4) n = 4;
+    current = n;
+    document.getElementById('view-today').classList.toggle('active', n === 1);
+    document.getElementById('view-coverage').classList.toggle('active', n >= 2);
+    document.getElementById('modal-layer').classList.toggle('active', n >= 3);
+    document.getElementById('modal-propose').style.display = (n === 3) ? 'block' : 'none';
+    document.getElementById('modal-active').style.display = (n === 4) ? 'block' : 'none';
+    if (n !== 4) { // reset the backtest result when leaving the active screen
+      document.getElementById('test-result').classList.remove('show');
+      document.getElementById('test-btn').textContent = 'Test this alert';
+    }
+    document.getElementById('pb-name').textContent = NAMES[n];
+    document.getElementById('pb-count').textContent = n + ' / 4';
+    document.getElementById('pb-back').disabled = (n === 1);
+    document.getElementById('pb-next').disabled = (n === 4);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function toggleGuide() {
+    document.body.classList.toggle('guide-off');
+    const off = document.body.classList.contains('guide-off');
+    document.getElementById('guide-toggle').textContent = off ? 'Guide: Off' : 'Guide: On';
+  }
+  function testAlert() {
+    const btn = document.getElementById('test-btn');
+    btn.textContent = 'Running backtest…';
+    setTimeout(() => {
+      document.getElementById('test-result').classList.add('show');
+      btn.textContent = 'Re-test';
+    }, 650);
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(current + 1);
+    if (e.key === 'ArrowLeft') go(current - 1);
+  });
+  go(1);
+</script>
+</body>
+</html>
