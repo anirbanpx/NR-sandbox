@@ -17,6 +17,8 @@ visibility out of the box, and what does it take to actually get there?
 |---|---|---|
 | 🎯 **Interactive prototype** | The proposed **"Process Coverage"** view — a clickable 4-screen fix with a built-in guided walkthrough | **[▶ Launch the prototype](https://anirbanpx.github.io/NR-sandbox/prototype/)** |
 | 📋 **Friction log** | The core findings: a step-by-step teardown of the operator journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** |
+| 📊 **Grafana live dashboard** | OTel hostmetrics on the live EC2 — CPU, memory, 133 named processes, load average (public, no login) | **[▶ Open dashboard](https://cyanpiano2691.grafana.net/public-dashboards/1b74cf98134b47ba84ed1bf32f369a7a)** |
+| 🔴 **New Relic live view** | NR Infrastructure agent on the same host — named process list, APM, host metrics | **[▶ Open New Relic](https://onenr.io/0ERPxbDZPRW)** |
 | 🖼️ **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
 | 🛠️ **The build** | The dual-instrumented workload I deployed — real traffic, real host | [Architecture ↓](#observability-architecture) · [app/](app/) · [infra/](infra/) |
 | 🎨 **Mock source** | Prototype source + a static panel export | [prototype/](prototype/) · [docs/mocks/](docs/mocks/) |
