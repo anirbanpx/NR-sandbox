@@ -1,46 +1,50 @@
-# NR Sandbox — process monitoring: a hands-on teardown + prototype
+# NR Sandbox — Process Monitoring: A Teardown and Prototype
 
-This repo is the hands-on half of a product exercise on **why process monitoring is foundational
-yet under-adopted** — and what to do about it. Instead of reviewing docs, I deployed a real
-workload on AWS, instrumented it with **two stacks in parallel** (New Relic + OpenTelemetry /
-Grafana), broke it on purpose, and documented every place an operator silently falls off between
-*install* and *trust* — then designed a fix and built it as a clickable prototype.
+This repository contains the hands-on component of a product exercise examining **why process
+monitoring is foundational yet under-adopted** — and what can be done about it. Rather than
+relying on a documentation review, I deployed a real workload on AWS, instrumented it with **two
+stacks in parallel** (New Relic and OpenTelemetry/Grafana), deliberately introduced failures, and
+documented every point at which a practitioner loses confidence between *installation* and *trust*.
+I then designed a remedy and built it as a clickable prototype.
 
-The core question throughout: how quickly does each stack surface trustworthy per-process
-visibility out of the box, and what does it take to actually get there?
+The central question throughout: how quickly does each stack surface trustworthy per-process
+visibility out of the box, and what is required to get there?
 
 ---
 
-## 👋 Reviewer's guide — start here
+## Reviewer's Guide
 
-| Deliverable | What it is | Open it |
+| Deliverable | Description | Open it |
 |---|---|---|
-| 🎯 **Interactive prototype** | The proposed **"Process Coverage"** view — a clickable 4-screen fix with a built-in guided walkthrough | **[▶ Launch the prototype](https://anirbanpx.github.io/NR-sandbox/prototype/)** |
-| 📋 **Friction log** | The core findings: a step-by-step teardown of the operator journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** |
-| 📊 **Grafana live dashboard** | OTel hostmetrics on the live EC2 — CPU, memory, 133 named processes, load average (public, no login) | **[▶ Open dashboard](https://cyanpiano2691.grafana.net/public-dashboards/1b74cf98134b47ba84ed1bf32f369a7a)** |
-| 🔴 **New Relic live view** | NR Infrastructure agent on the same host — named process list, APM, host metrics | **[▶ Open New Relic](https://onenr.io/0ERPxbDZPRW)** |
-| 🖼️ **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
-| 🛠️ **The build** | The dual-instrumented workload I deployed — real traffic, real host | [Architecture ↓](#observability-architecture) · [app/](app/) · [infra/](infra/) |
-| 🎨 **Mock source** | Prototype source + a static panel export | [prototype/](prototype/) · [docs/mocks/](docs/mocks/) |
-| 🎥 **Demo video** | ~1.5-min walkthrough: AWS console, live web app, Grafana + New Relic side by side | **[▶ Watch on YouTube](https://youtu.be/TQgK1YVJlbc)** |
+| **Interactive prototype** | The proposed "Process Coverage" view — a clickable four-screen fix with a built-in guided walkthrough | **[Launch the prototype](https://anirbanpx.github.io/NR-sandbox/prototype/)** |
+| **Friction log** | The core findings: a step-by-step teardown of the practitioner journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** |
+| **Grafana live dashboard** | OTel hostmetrics on the live EC2 instance — CPU, memory, 133 named processes, load average (publicly accessible, no authentication required) | **[Open dashboard](https://cyanpiano2691.grafana.net/public-dashboards/1b74cf98134b47ba84ed1bf32f369a7a)** |
+| **New Relic live view** | New Relic Infrastructure agent on the same host — named process list, APM, host metrics | **[Open New Relic](https://onenr.io/0ERPxbDZPRW)** |
+| **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
+| **The build** | The dual-instrumented workload deployed for this exercise — real traffic, real host | [Architecture ↓](#observability-architecture) · [app/](app/) · [infra/](infra/) |
+| **Mock source** | Prototype source and a static panel export | [prototype/](prototype/) · [docs/mocks/](docs/mocks/) |
+| **Demo video** | Approximately 1.5-minute walkthrough: AWS console, live web application, Grafana and New Relic side by side | **[Watch on YouTube](https://youtu.be/TQgK1YVJlbc)** |
 
-> **New here?** Open the **prototype** first — it tells the story in about a minute — then read the
-> **friction log** for the evidence behind it. Everything below documents the build that produced both.
+> **First time here?** Begin with the **prototype** — it tells the story in roughly a minute —
+> then read the **friction log** for the supporting evidence. The remainder of this document
+> describes the build that produced both.
 
 ---
 
-## What's running
+## Components
 
-**FastAPI app** — full CRUD on items (`GET`/`POST`/`PUT`/`DELETE`), plus an intentionally
-slow endpoint (1.5–3s latency) and an intentional 500 error. Backed by Redis. Ships a
-bare-bone browser UI at `/` for live demos (no curl needed).
+**FastAPI application** — full CRUD operations on items (`GET`/`POST`/`PUT`/`DELETE`), an
+intentionally slow endpoint (1.5–3 second latency), and an intentional 500 error. Backed by
+Redis. Includes a minimal browser UI at `/` for live demonstrations, requiring no command-line
+tools.
 
-**Background worker** — polls a Redis queue and processes jobs. Intentionally not
-auto-instrumented by either stack — killing it mid-run is the central demo moment.
+**Background worker** — polls a Redis queue and processes jobs. Deliberately left
+uninstrumented by either stack; terminating it mid-run is the central demonstration moment.
 
-**OTel Collector** — collects host metrics and per-process metrics, exports to Grafana Cloud.
+**OTel Collector** — collects host metrics and per-process metrics, and exports them to
+Grafana Cloud.
 
-**NR Infrastructure agent** — ships host-level metrics to New Relic.
+**New Relic Infrastructure agent** — transmits host-level metrics to New Relic.
 
 ---
 
@@ -72,15 +76,15 @@ auto-instrumented by either stack — killing it mid-run is the central demo mom
                         │  Tempo      — traces     │   │  APM            — svcs   │
                         │  Loki       — logs       │   │  Logs                    │
                         └─────────────────────────┘   └──────────────────────────┘
-                               Path A (OSS)                   Path B (NR)
+                               Path A (OSS)                   Path B (New Relic)
 
   ① OTel SDK — traces, metrics, logs exported from the app via OTLP
-  ② NR APM agent — in-process, ships app telemetry directly to New Relic
+  ② New Relic APM agent — in-process, ships app telemetry directly to New Relic
   ③ host + per-process metrics — CPU, memory, per-PID stats for all running processes
 ```
 
-Both stacks see the same host and processes ③. The central demo moment: kill `worker.py`
-and observe how quickly (or slowly) each stack surfaces the missing process.
+Both stacks observe the same host and processes (③). The central demonstration: terminate
+`worker.py` and observe how quickly, or slowly, each stack surfaces the missing process.
 
 ---
 
@@ -100,7 +104,7 @@ collector/
 infra/
   provision-ec2.sh  One-time EC2 setup (key pair, security group, instance)
   deploy.sh         Sync repo + run setup-ec2.sh
-  setup-ec2.sh      Idempotent bootstrap: installs app, NR agent, NRDOT collector, OTel Collector
+  setup-ec2.sh      Idempotent bootstrap: installs app, New Relic agent, NRDOT collector, OTel Collector
   teardown-ec2.sh   Terminate instance and clean up AWS resources
   nginx.conf        Reverse proxy config
   .env.example      Required environment variables
@@ -153,9 +157,9 @@ pytest tests/
 
 ### EC2 deployment
 
-See [`infra/README.md`](infra/README.md) for the full deployment walkthrough.
+Refer to [`infra/README.md`](infra/README.md) for the complete deployment walkthrough.
 
-Short version:
+Summary:
 ```bash
 # 1. provision (one-time)
 bash infra/provision-ec2.sh
@@ -177,14 +181,14 @@ curl http://<public-ip>/health
 
 | | New Relic | Grafana Cloud |
 |---|---|---|
-| Agent | NR Infrastructure agent + NRDOT v1.16.0¹ | OTel Collector contrib |
-| Transport | Proprietary (NR ingest) | OTLP/HTTP |
+| Agent | New Relic Infrastructure agent + NRDOT v1.16.0¹ | OTel Collector contrib |
+| Transport | Proprietary (New Relic ingest) | OTLP/HTTP |
 | Host metrics | Yes (built-in) | Yes (hostmetrics receiver) |
 | Per-process metrics | Yes (built-in) | Yes (process scraper) |
-| App traces | NR APM agent (separate) | OTel SDK → Collector |
+| App traces | New Relic APM agent (separate) | OTel SDK → Collector |
 | EU region | `eu0*` key prefix + `collector_url` | endpoint URL contains region |
 
-¹ NRDOT (`nrdot-collector`) is NR's production-grade OTel distribution, installed alongside the
+¹ NRDOT (`nrdot-collector`) is New Relic's production-grade OTel distribution, installed alongside the
 infra agent to cross-check default process-metrics behaviour on the OTel path. Both ship to New
 Relic; the infra agent is the primary collector.
 
