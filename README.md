@@ -17,7 +17,7 @@ visibility out of the box, and what is required to get there?
 | Deliverable | Description | Open it |
 |---|---|---|
 | **Interactive prototype** | The proposed "Process Coverage" view — a clickable four-screen fix with a built-in guided walkthrough | **[Launch the prototype](https://anirbanpx.github.io/NR-sandbox/prototype/)** |
-| **Friction log** | The core findings: a step-by-step teardown of the practitioner journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** |
+| **Friction log** | The core findings, and the Aha moments where the product's value broke through despite the friction — a step-by-step teardown of the practitioner journey, evidenced with screenshots | **[docs/friction-log.md](docs/friction-log.md)** ([Aha moments](docs/friction-log.md#5-aha-moments)) |
 | **Grafana live dashboard** | OTel hostmetrics on the live EC2 instance — CPU, memory, 133 named processes, load average (publicly accessible, no authentication required) | **[Open dashboard](https://cyanpiano2691.grafana.net/public-dashboards/1b74cf98134b47ba84ed1bf32f369a7a)** |
 | **New Relic live view** | New Relic Infrastructure agent on the same host — named process list, APM, host metrics | **[Open New Relic](https://onenr.io/0ERPxbDZPRW)** |
 | **Evidence** | The raw screenshots behind every finding | **[docs/images/](docs/images/)** |
