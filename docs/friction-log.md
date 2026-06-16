@@ -140,6 +140,9 @@ Under load it showed 62 named processes, immediately actionable:
 | redis6 | 8.85% | Handling all reads |
 | **nr-sandbox-worker** | **0.037%** | The payment-adjacent worker — at **position 7, off-screen** |
 
+> **Aha moment:** this is the payoff — once the flag is set, the Processes tab needs no further
+> config to be useful. The product works; the failure was getting here.
+
 On the OTel side this was worse: Grafana returned process metrics, but
 `process_executable_name` was absent from every label, because `mute_process_exe_error: true`
 in the collector config silenced the label-drop warning. The result: aggregate process CPU
@@ -174,6 +177,8 @@ main Alerts wizard, and not from the process row's context menu:
 ![The process row "..." menu — View logs, Map view, View entity details, See metadata & tags. No alert option.](images/22-process-row-menu.png)
 
 ![The native "Process running" condition — a "no processes are running" threshold, a filter-by-name field, and a live process-count graph for validation. The right tool, hidden behind a different flow.](images/23-process-running-condition.png)
+
+> **Aha moment, again:** the right tool exists. It is just hidden behind a different flow.
 
 This is a **discoverability gap, not a missing feature.** An operator who can't find what they
 need in the guided path falls back to NRQL — and into the next trap.
@@ -239,7 +244,26 @@ routing. The tools designed to make failure visible failed silently during setup
 
 ---
 
-## 5. Key findings
+## 5. Aha moments
+
+Not every dead end stayed a dead end. Twice during this build, the product's actual value broke
+through despite the friction getting there — these are the moments that justify the adoption
+thesis rather than just complicating it.
+
+1. **The capability is real; only the discoverability is broken.** Once
+   `enable_process_metrics` was on, the Processes tab was immediately useful — named, attributed
+   processes with zero further config (Phase 3). The same shape repeats in alerting: the native
+   "Process running" condition is excellent, just unreachable from the main wizard (Phase 4,
+   Trap 1). The product is not missing the feature — it is hiding it.
+2. **The entity model is the real edge.** OpenTelemetry recorded `host.name` as a dead string;
+   New Relic turned the same host into a navigable host → service link. That is the moment the
+   comparison stopped being about dashboards and started being about whether the platform can
+   answer "what does this process belong to?" without a manual join (see Key finding 6,
+   Competitive teardown).
+
+---
+
+## 6. Key findings
 
 1. **Silent failure is the worst failure mode for an observability tool.** Four in a row, none
    with an error. The most dangerous thing a monitoring tool can do is let you believe it's
@@ -263,7 +287,7 @@ routing. The tools designed to make failure visible failed silently during setup
 
 ---
 
-## 6. Onboarding paths compared
+## 7. Onboarding paths compared
 
 *Answering the day-one question: fastest way to per-process visibility on this EC2 box?*
 
@@ -291,7 +315,7 @@ The SSM Distributor path delivers friction A *at fleet scale*:
 
 ---
 
-## 7. Competitive teardown
+## 8. Competitive teardown
 
 How New Relic, Datadog, and Dynatrace handle the sharpest friction points:
 
@@ -305,9 +329,12 @@ How New Relic, Datadog, and Dynatrace handle the sharpest friction points:
 New Relic's real edge is the **entity model** — the navigable process→host→service links that
 OTel's dead string attributes can't match. Its real gap is **defaults and discoverability**.
 
+> **Aha moment:** this is New Relic's structural edge — not a dashboard difference, but the
+> ability to answer "what does this process belong to?" without a manual join.
+
 ---
 
-## 8. Beyond the Big Three
+## 9. Beyond the Big Three
 
 The most useful signal for an *adoption* thesis comes from the newer entrants:
 
@@ -323,7 +350,7 @@ configuration and query burden onto users. It's won by removing that burden.
 
 ---
 
-## 9. Provoking faults and testing alerts
+## 10. Provoking faults and testing alerts
 
 To know what alerts I needed, I had to manually kill the worker and watch. That's backwards. The
 ideal loop: inject a known fault → observe what fired and what didn't → backtest the proposed
@@ -341,7 +368,7 @@ into a feedback loop.
 
 ---
 
-## 10. Working backward: business journey → process
+## 11. Working backward: business journey → process
 
 The default frame is "here are 62 processes sorted by CPU%, figure out which matter." The better
 frame runs top-down: **business outcome → critical user journey → SLO → services in the path →
@@ -353,7 +380,7 @@ hand-declared.
 
 ---
 
-## 11. Ideal user journey (to-be)
+## 12. Ideal user journey (to-be)
 
 Same five-phase spine, friction removed:
 
@@ -371,7 +398,7 @@ Same five-phase spine, friction removed:
 
 ---
 
-## 12. Proposed improvements (mapped to frictions)
+## 13. Proposed improvements (mapped to frictions)
 
 | # | Improvement | Closes |
 |---|-------------|--------|
